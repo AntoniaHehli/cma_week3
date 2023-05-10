@@ -11,6 +11,7 @@ library(ggplot2)
 library(magrittr)
 library(readr)
 library(sf)
+library(SimilarityMeasures)
 ```
 
 # Demonstration Sabi
@@ -218,7 +219,7 @@ posmo_filter <- posmo_filter %>%
 head(posmo_filter)
 ```
 
-```{r}
+```{r filtering static parts}
 # filter out static parts of the trajectory
 posmo_filter_moving <- posmo_filter %>%
     filter(!static)
@@ -280,12 +281,147 @@ pedestrians %>%
   geom_point(aes(color = factor(TrajID)))+
   facet_wrap(~ TrajID, ncol = 3)+
   coord_equal()+
-  theme_minimal()+
   labs(title = "Visual comparison of the 6 trajectories")+
   theme(legend.position = "none")
 
 ```
 
+# Task 6: Calculate similarity
 
+The new library was added to all the libraries at the top of this document.
 
+As the functions take matrices with one trajectory each as input, I need to split my dataset into 6 different matrices, each representing one trajectory. This matrices only contain the E and N location of the fixes, nothing else.
 
+```{r split into different matrices}
+
+traj1 <- pedestrians %>%
+  filter(TrajID == 1) %>%
+  select(E, N) %>%
+  as.matrix()
+
+traj2 <- pedestrians %>%
+  filter(TrajID == 2) %>%
+  select(E, N) %>%
+  as.matrix()
+
+traj3 <- pedestrians %>%
+  filter(TrajID == 3) %>%
+  select(E, N) %>%
+  as.matrix()
+
+traj4 <- pedestrians %>%
+  filter(TrajID == 4) %>%
+  select(E, N) %>%
+  as.matrix()
+
+traj5 <- pedestrians %>%
+  filter(TrajID == 5) %>%
+  select(E, N) %>%
+  as.matrix()
+
+traj6 <- pedestrians %>%
+  filter(TrajID == 6) %>%
+  select(E, N) %>%
+  as.matrix()
+
+```
+
+When only looking at the different visualization of the trajectories, trajectory 1 and 6 look quite similar. Trajectory 1 and 2 as well in terms of route, but there are more fixes on the second part of the trajectory for trajectory 1 and more in the first part for trajectory 2. Trajectory 3 shows also a really similar path as the first two but the fixes are more evenly distributed. Trajectory 4 looks quite different from trajectory 2, but when looking at the second part (right of the edge) it is quite similar to 1 and 3. 5 is similar to 1, 2, and 3 as well except for the outlier. Depending on the method, this outlier will have a big influence or not. Trajectory 6 also looks really similar like 1 as the path is similar as well as the number of fixes on the path. Conclusively, I would make the following statment:
+
+- Trajectory 3 is the most similar to trajectory 1.
+
+- Trajectory 4 is the most dissimilar to trajectory 1.
+
+## DTW
+
+```{r DTW calculation}
+# calculate the DTW for each trajectory to trajectory 1
+DTW_2 <- DTW(traj1, traj2)
+DTW_3 <- DTW(traj1, traj3)
+DTW_4 <- DTW(traj1, traj4)
+DTW_5 <- DTW(traj1, traj5)
+DTW_6 <- DTW(traj1, traj6)
+
+# save the values in a dataframe
+similarity_values <- data.frame(Trajectory = c(2:6),
+                         Measure = "DTW",
+                         Values = c(DTW_2, DTW_3, DTW_4, DTW_5, DTW_6))
+
+```
+
+## Edit distance
+
+I will use the edit distance with a threshold value of 4.
+
+```{r Edit distance calculation}
+# calculate the edit distance for each trajectory to trajectory 1
+ED_2 <- EditDist(traj1, traj2, 4)
+ED_3 <- EditDist(traj1, traj3, 4)
+ED_4 <- EditDist(traj1, traj4, 4)
+ED_5 <- EditDist(traj1, traj5, 4)
+ED_6 <- EditDist(traj1, traj6, 4)
+
+# append similarity values to the previously created dataframe
+similarity_values <- data.frame(Trajectory = c(2:6),
+        Measure = "EditDist",
+        Values = c(ED_2, ED_3, ED_4, ED_5, ED_6)) %>%
+  rbind(similarity_values)
+```
+
+## Frechet distance
+
+```{r frechet distance calculation}
+# calculate the fréchet distance for each trajectory to trajectory 1
+F_2 <- Frechet(traj1, traj2)
+F_3 <- Frechet(traj1, traj3)
+F_4 <- Frechet(traj1, traj4)
+F_5 <- Frechet(traj1, traj5)
+F_6 <- Frechet(traj1, traj6)
+
+# append similarity values to the previously created dataframe
+similarity_values <- data.frame(Trajectory = c(2:6),
+        Measure = "Frechet",
+        Values = c(F_2, F_3, F_4, F_5, F_6)) %>%
+  rbind(similarity_values)
+```
+
+## Longest common subsequence
+
+I choose to work with the following set of parameter:
+
+- pointSpacing = 3
+- pointDistance = 3
+- errorMarg = 0.5
+
+```{r}
+# calculate the LCSS values
+LCSS_2 <- LCSS(traj1, traj2, 3, 3, 0.5)
+LCSS_3 <- LCSS(traj1, traj3, 3, 3, 0.5)
+LCSS_4 <- LCSS(traj1, traj4, 3, 3, 0.5)
+LCSS_5 <- LCSS(traj1, traj5, 3, 3, 0.5)
+LCSS_6 <- LCSS(traj1, traj6, 3, 3, 0.5)
+
+# add to the similarity values data frame
+similarity_values <- data.frame(Trajectory = c(2:6),
+        Measure = "LCSS",
+        Values = c(LCSS_2, LCSS_3, LCSS_4, LCSS_5, LCSS_6)) %>%
+  rbind(similarity_values)
+```
+
+## Plot and short discussion
+
+```{r boxplot similarity values}
+ggplot(similarity_values,
+       aes(x = Trajectory,
+           y = Values,
+           fill = as.factor(Trajectory))) +
+  geom_bar(stat = "identity")+
+  theme(legend.position = "none")+
+  facet_wrap(.~Measure, scales = "free_y")+
+  labs(x = "Comparison trajectory",
+       y = "Similarity value")+
+  ggtitle("Computed similarities using different measures between trajectory 1 to all other trajectories")
+
+```
+
+When looking at the similarity measures, DTW as well as the Frechet distance represent my own intuition of trajectory 3 being the most similar to trajectory 1 but not trajectory 4 as the most dissimilar. DTW and Frechet distance result in very similar similarity values for the different trajectories, whereas Edit Distance and LCSS are different. I think overall, DTW represents my intuition pretty well although I said that trajectory 6 is also quite similar to trajectory 1.
