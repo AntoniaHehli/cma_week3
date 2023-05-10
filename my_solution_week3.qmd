@@ -111,7 +111,7 @@ posmo <- cbind(posmo, posmo_coordinates)
 
 ```{r select one day}
 posmo_filter <- posmo %>%
-    filter(as.Date(datetime) == "2023-04-26")
+    filter(as.Date(datetime) == "2023-04-27")
 
 
 
@@ -150,7 +150,7 @@ posmo_filter <- posmo_filter %>%
 
 ## c) Remove static points
 
-```{r}
+```{r removing static points}
 posmo_filter <- posmo_filter %>%
     ungroup() %>%
     mutate(static = stepMean < mean(stepMean, na.rm = TRUE))
@@ -166,6 +166,40 @@ posmo_filter_stat %>%
     theme(legend.position = "bottom")
 ```
 
-# Task 2
+# Task 2: Threshold d
+
+```{r summary}
+summary(posmo_filter$stepMean)
+```
+
+The summary function indicates that the mean step length is 91.58 meters. I also create a histogram to visualize the variation of the values. 
+
+```{r histogram steplength}
+ggplot(posmo_filter, aes(stepMean))+
+  geom_histogram(binwidth = 10) + 
+  labs(x = "Steplength [m]",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+
+
+```{r threshold d}
+posmo_filter <- posmo_filter %>%
+    ungroup() %>%
+    mutate(static = stepMean < mean(stepMean, na.rm = TRUE))
+```
+
+# Task 3: Visualization
+
+```{r visualize trajectory}
+posmo_filter %>%
+  ggplot(aes(X, Y, color = static)) +
+  geom_path() +
+  geom_point() +
+  coord_equal()+
+  theme_minimal()
+```
 
 
