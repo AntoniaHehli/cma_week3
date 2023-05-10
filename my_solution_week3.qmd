@@ -63,7 +63,8 @@ ggplot(sabi, aes(stepMean)) +
 
 
 # The static column should be true or false: If the stepMean is smaller than the mean of stepMean it is static.
-sabi <- sabi %>% mutate(static = stepMean < mean(stepMean, na.rm = TRUE))
+sabi <- sabi %>% 
+  mutate(static = stepMean < mean(stepMean, na.rm = TRUE))
 
 ggplot(sabi, aes(E, N)) + 
   geom_path() +
@@ -179,11 +180,9 @@ ggplot(posmo_filter, aes(stepMean))+
   geom_histogram(binwidth = 10) + 
   labs(x = "Steplength [m]",
        y = "Count") +
+  geom_vline(xintercept = mean(posmo_filter$stepMean, na.rm = TRUE)) +
   theme_minimal()
-
 ```
-
-
 
 ```{r threshold d}
 posmo_filter <- posmo_filter %>%
@@ -202,4 +201,71 @@ posmo_filter %>%
   theme_minimal()
 ```
 
+# Task 4: Segment-based analysis
 
+```{r unique ID}
+rle_id <- function(vec) {
+    x <- rle(vec)$lengths
+    as.factor(rep(seq_along(x), times = x))
+}
+```
+
+```{r apply the rle_id function}
+
+posmo_filter <- posmo_filter %>%
+    mutate(segment_id = rle_id(static))
+
+head(posmo_filter)
+```
+
+```{r}
+# filter out static parts of the trajectory
+posmo_filter_moving <- posmo_filter %>%
+    filter(!static)
+
+posmo_filter_moving %>%
+  ggplot(aes(X, Y, color = segment_id)) +
+  geom_path() +
+  geom_point() +
+  coord_equal()+
+  theme_minimal()+
+  theme(legend.position = "none")+ # remove the legend
+  ggtitle("All segments (uncleaned)")
+```
+
+```{r remove short segments}
+# calculate the time difference between each two fixes
+posmo_filter_moving <- posmo_filter_moving %>% 
+  mutate(
+    timeDifference_s = as.numeric(lead(datetime, 1)-datetime)
+    )
+
+# calculate the total time difference for one segment
+posmo_filter_moving <- posmo_filter_moving %>% 
+  group_by(segment_id) %>%
+  mutate(
+    segmentTime_s = sum(timeDifference_s)
+  ) %>%
+  ungroup()
+
+# filter for segments longer than 5 minutes
+minutes <- 60*5 # convert one minute to seconds
+
+posmo_filter_moving_long <- posmo_filter_moving %>%
+    filter(!segmentTime_s < minutes) # remove all rows with a segment time smaller than 5 minutes
+
+```
+
+```{r visualization without short segments}
+posmo_filter_moving_long %>%
+  ggplot(aes(X, Y, color = segment_id)) +
+  geom_path() +
+  geom_point() +
+  coord_equal()+
+  theme_minimal()+
+  theme(legend.position = "none")+ # remove the legend
+  ggtitle("Long segments (removed segments < 5 minutes)")
+
+```
+
+# Task 5: Similarity measures
