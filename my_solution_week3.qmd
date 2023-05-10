@@ -269,3 +269,23 @@ posmo_filter_moving_long %>%
 ```
 
 # Task 5: Similarity measures
+
+```{r read and explore pedestrians file}
+
+pedestrians <- read_csv("pedestrian.csv")
+
+pedestrians %>%
+  ggplot(aes(E, N))+
+  geom_path(aes(color = factor(TrajID)))+
+  geom_point(aes(color = factor(TrajID)))+
+  facet_wrap(~ TrajID, ncol = 3)+
+  coord_equal()+
+  theme_minimal()+
+  labs(title = "Visual comparison of the 6 trajectories")+
+  theme(legend.position = "none")
+
+```
+
+
+
+
